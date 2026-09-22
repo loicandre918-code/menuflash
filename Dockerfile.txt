@@ -1,0 +1,21 @@
+# Utiliser une image officielle Node.js stable
+FROM node:18-slim
+
+# Créer le dossier de travail dans le conteneur
+WORKDIR /app
+
+# Copier les fichiers package.json et package-lock.json
+COPY package*.json ./
+
+# Installer les dépendances (nécessaire pour better-sqlite3)
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN npm install --production
+
+# Copier le reste du code de l'application
+COPY . .
+
+# Exposer le port de l'application
+EXPOSE 3000
+
+# Commande pour démarrer l'application
+CMD ["node", "server.js"]

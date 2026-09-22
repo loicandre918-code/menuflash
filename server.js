@@ -7,14 +7,17 @@ const QRCode = require('qrcode');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-const PORT = 3000;
+
+// Configuration du port pour Fly.io ou local
+const PORT = process.env.PORT || 3000;
 
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// --- CONFIGURATION BDD ---
-const db = new Database('menuflash.db');
+// --- CONFIGURATION BDD (Persistante sur Fly.io via /data) ---
+const dbPath = process.env.NODE_ENV === 'production' ? '/data/menuflash.db' : 'menuflash.db';
+const db = new Database(dbPath);
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS restaurants (
@@ -67,7 +70,7 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Admin Dashboard (Génère aussi le QR Code en image DataURL pour l'afficher directement)
+// Admin Dashboard (Génère le QR Code avec la bonne URL publique ou locale)
 app.get('/admin/:slug', async (req, res) => {
     const slug = req.params.slug;
     const resto = db.prepare("SELECT * FROM restaurants WHERE slug = ?").get(slug);
@@ -78,7 +81,11 @@ app.get('/admin/:slug', async (req, res) => {
     const reservations = db.prepare("SELECT * FROM reservations WHERE restaurant_id = ? AND status = 'pending' ORDER BY id DESC").all(resto.id);
 
     try {
-        const menuUrl = `http://localhost:${PORT}/menu/${slug}`;
+        // Détecte automatiquement si on est en ligne ou en local pour le QR Code
+        const host = req.get('host');
+        const protocol = req.protocol;
+        const menuUrl = `${protocol}://${host}/menu/${slug}`;
+        
         const qrImage = await QRCode.toDataURL(menuUrl);
         res.render('admin', { resto, items, reservations, qrImage });
     } catch (err) {
@@ -156,6 +163,6 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(PORT, () => {
-    console.log(`MenuFlash SaaS Pro actif sur http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`MenuFlash SaaS Pro actif sur le port ${PORT}`);
 });
