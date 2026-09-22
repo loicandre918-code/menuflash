@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Dashboard - <%= resto.name %></title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #f1f5f9; color: #1e293b; margin: 0; padding: 20px; }
+        .header { background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media(max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+        .card { background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h2 { margin-top: 0; color: #0f172a; font-size: 1.2rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .res-card { background: #f8fafc; border-left: 4px solid #2563eb; padding: 12px; margin-bottom: 10px; border-radius: 0 8px 8px 0; display: flex; justify-content: space-between; align-items: center; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+        
+        button { background: #2563eb; color: #fff; border: none; padding: 10px 15px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+        button:hover { background: #1d4ed8; }
+        button.btn-danger { background: #ef4444; padding: 6px 10px; font-size: 0.8rem; }
+        button.btn-danger:hover { background: #dc2626; }
+        button.btn-success { background: #10b981; padding: 6px 10px; font-size: 0.8rem; }
+        button.btn-success:hover { background: #059669; }
+
+        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+        .badge { background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+        .qr-box { text-align: center; }
+        .qr-box img { width: 140px; height: 140px; border: 4px solid #f1f5f9; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <h1>🍽️ <%= resto.name %></h1>
+            <span class="badge">Tablette Staff Active</span>
+        </div>
+        <div>
+            <a href="/menu/<%= resto.slug %>" target="_blank" style="text-decoration:none; background:#0f172a; color:#fff; padding:10px 15px; border-radius:6px; font-weight:bold;">Voir le Menu Public ↗</a>
+        </div>
+    </div>
+
+    <div class="grid">
+        <!-- Colonne Gauche : Réservations & QR Code -->
+        <div>
+            <div class="card">
+                <h2>📅 Réservations en Temps Réel</h2>
+                <div id="reservations-list">
+                    <% if (reservations.length === 0) { %>
+                        <p id="no-res" style="color: #64748b;">Aucune réservation en attente.</p>
+                    <% } else { %>
+                        <% reservations.forEach(r => { %>
+                            <div class="res-card" id="res-<%= r.id %>">
+                                <div>
+                                    <strong>👤 <%= r.name %></strong> (<%= r.phone %>)<br>
+                                    🕒 <%= r.date %> à <%= r.time %> — <strong><%= r.people %> pers.</strong>
+                                </div>
+                                <form action="/admin/<%= resto.slug %>/complete-reservation/<%= r.id %>" method="POST">
+                                    <button type="submit" class="btn-success">✓ Traité</button>
+                                </form>
+                            </div>
+                        <% }) %>
+                    <% } %>
+                </div>
+            </div>
+
+            <!-- Module QR Code Intégré -->
+            <div class="card qr-box">
+                <h2>📱 QR Code des Tables</h2>
+                <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px;">À imprimer et poser sur les tables du restaurant :</p>
+                <img src="<%= qrImage %>" alt="QR Code Menu">
+            </div>
+        </div>
+
+        <!-- Colonne Droite : Gestion du Menu -->
+        <div class="card">
+            <h2>🍔 Gestion de la Carte</h2>
+            <form action="/admin/<%= resto.slug %>/add-item" method="POST" style="margin-bottom: 25px;">
+                <div class="form-group">
+                    <label>Nom du plat / produit :</label>
+                    <input type="text" name="name" required placeholder="Ex: Burger Deluxe">
+                </div>
+                <div class="form-group">
+                    <label>Prix :</label>
+                    <input type="text" name="price" required placeholder="Ex: 16.00 €">
+                </div>
+                <button type="submit" style="width:100%;">Ajouter au menu instantanément</button>
+            </form>
+
+            <h3 style="font-size:1rem; margin-bottom:10px;">Plats actuellement affichés :</h3>
+            <div>
+                <% if (items.length === 0) { %>
+                    <p style="color: #64748b;">Aucun plat enregistré.</p>
+                <% } else { %>
+                    <% items.forEach(item => { %>
+                        <div class="item-row">
+                            <span><%= item.name %> — <strong><%= item.price %></strong></span>
+                            <form action="/admin/<%= resto.slug %>/delete-item/<%= item.id %>" method="POST" style="margin:0;">
+                                <button type="submit" class="btn-danger">🗑️ Supprimer</button>
+                            </form>
+                        </div>
+                    <% }) %>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Temps Réel WebSocket -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const restoSlug = "<%= resto.slug %>";
+        
+        socket.emit('join-admin-room', restoSlug);
+
+        socket.on('new-reservation', (data) => {
+            const list = document.getElementById('reservations-list');
+            const noResMsg = document.getElementById('no-res');
+            if (noResMsg) noResMsg.remove();
+
+            const newCard = document.createElement('div');
+            newCard.className = 'res-card';
+            newCard.id = `res-${data.id}`;
+            newCard.innerHTML = `
+                <div>
+                    <strong>🔔 NOUVELLE : 👤 ${data.name}</strong> (${data.phone})<br>
+                    🕒 ${data.date} à ${data.time} — <strong>${data.people} pers.</strong>
+                </div>
+                <form action="/admin/${restoSlug}/complete-reservation/${data.id}" method="POST">
+                    <button type="submit" class="btn-success">✓ Traité</button>
+                </form>
+            `;
+            list.prepend(newCard);
+
+            // Alerte sonore ou visuelle simple
+            alert(`🎉 Nouvelle réservation de ${data.name} (${data.people} personnes) !`);
+        });
+    </script>
+</body>
+</html>

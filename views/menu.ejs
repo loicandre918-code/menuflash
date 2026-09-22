@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= resto.name %> - Menu & Réservation</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fafafa; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #111; margin-bottom: 5px; }
+        .category { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px; }
+        .item-list { list-style: none; padding: 0; }
+        .item { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #eee; }
+        .item-name { font-weight: 600; font-size: 1.1rem; }
+        .item-price { color: #2563eb; font-weight: bold; }
+        
+        .reservation-box { margin-top: 40px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 20px; border-radius: 12px; }
+        .reservation-box h3 { margin-top: 0; color: #166534; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: #374151; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; }
+        button.btn-submit { width: 100%; background: #16a34a; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        button.btn-submit:hover { background: #15803d; }
+        .alert-success { background: #dcfce7; color: #166534; padding: 10px; border-radius: 6px; text-align: center; margin-bottom: 20px; font-weight: bold; }
+        footer { text-align: center; margin-top: 30px; font-size: 0.8rem; color: #aaa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><%= resto.name %></h1>
+        <div class="category"><%= resto.category %></div>
+
+        <% if (locals.success) { %>
+            <div class="alert-success">✅ Réservation envoyée avec succès !</div>
+        <% } %>
+        
+        <ul class="item-list">
+            <% if (items && items.length > 0) { %>
+                <% items.forEach(item => { %>
+                    <li class="item">
+                        <span class="item-name"><%= item.name %></span>
+                        <span class="item-price"><%= item.price %></span>
+                    </li>
+                <% }) %>
+            <% } else { %>
+                <p style="text-align: center; color: #888;">Aucun plat pour le moment.</p>
+            <% } %>
+        </ul>
+
+        <!-- Module de Réservation -->
+        <div class="reservation-box">
+            <h3>📅 Réserver une table</h3>
+            <form action="/reserve/<%= resto.slug %>" method="POST">
+                <div class="form-group">
+                    <label>Votre Nom :</label>
+                    <input type="text" name="name" required placeholder="Jean Dupont">
+                </div>
+                <div class="form-group">
+                    <label>Téléphone :</label>
+                    <input type="tel" name="phone" required placeholder="06 12 34 56 78">
+                </div>
+                <div class="form-group">
+                    <label>Date :</label>
+                    <input type="date" name="date" required>
+                </div>
+                <div class="form-group">
+                    <label>Heure :</label>
+                    <input type="time" name="time" required>
+                </div>
+                <div class="form-group">
+                    <label>Nombre de personnes :</label>
+                    <select name="people">
+                        <option value="1">1 personne</option>
+                        <option value="2" selected>2 personnes</option>
+                        <option value="3">3 personnes</option>
+                        <option value="4">4 personnes</option>
+                        <option value="5+">5 personnes ou plus</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit">Confirmer la réservation</button>
+            </form>
+        </div>
+
+        <footer>Propulsé par <strong>MenuFlash</strong></footer>
+    </div>
+</body>
+</html>
