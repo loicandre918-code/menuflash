@@ -4,7 +4,7 @@
 #
 
 app = 'menuflash-rolling-resonance-6161'
-primary_region = 'cdg'
+primary_region = 'ams'
 
 [build]
   dockerfile = 'Dockerfile'

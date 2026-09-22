@@ -1,14 +1,15 @@
 const express = require('express');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { Server } = require('socket.io');
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const QRCode = require('qrcode');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Configuration du port pour Fly.io ou local
 const PORT = process.env.PORT || 3000;
 
 app.set('view engine', 'ejs');
@@ -16,44 +17,70 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
 // --- CONFIGURATION BDD (Persistante sur Fly.io via /data) ---
-const dbPath = process.env.NODE_ENV === 'production' ? '/data/menuflash.db' : 'menuflash.db';
-const db = new Database(dbPath);
-
-db.exec(`
-    CREATE TABLE IF NOT EXISTS restaurants (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        slug TEXT UNIQUE,
-        name TEXT,
-        category TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        restaurant_id INTEGER,
-        name TEXT,
-        price TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS reservations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        restaurant_id INTEGER,
-        name TEXT,
-        phone TEXT,
-        date TEXT,
-        time TEXT,
-        people TEXT,
-        status TEXT DEFAULT 'pending'
-    );
-`);
-
-// Restaurant par défaut de test
-const existingResto = db.prepare("SELECT * FROM restaurants WHERE slug = 'café-paris'").get();
-if (!existingResto) {
-    const info = db.prepare("INSERT INTO restaurants (slug, name, category) VALUES (?, ?, ?)").run('café-paris', 'Le Café de Paris', 'Restaurant / Bar');
-    const restoId = info.lastInsertRowid;
-    db.prepare("INSERT INTO items (restaurant_id, name, price) VALUES (?, ?, ?)").run(restoId, 'Café Expresso', '2.00 €');
-    db.prepare("INSERT INTO items (restaurant_id, name, price) VALUES (?, ?, ?)").run(restoId, 'Croissant pur beurre', '1.50 €');
+if (process.env.NODE_ENV === 'production' && !fs.existsSync('/data')) {
+    try {
+        fs.mkdirSync('/data', { recursive: true });
+    } catch (err) {
+        console.error("Impossible de créer le dossier /data :", err);
+    }
 }
+
+const dbPath = process.env.NODE_ENV === 'production' ? '/data/menuflash.db' : 'menuflash.db';
+
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+        console.error("Erreur critique lors de l'ouverture de la base de données :", err.message);
+        process.exit(1);
+    }
+    console.log("Connecté à la base de données SQLite.");
+});
+
+// Initialisation des tables et du restaurant de test
+db.serialize(() => {
+    db.run(`
+        CREATE TABLE IF NOT EXISTS restaurants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            slug TEXT UNIQUE,
+            name TEXT,
+            category TEXT
+        )
+    `);
+
+    db.run(`
+        CREATE TABLE IF NOT EXISTS items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            restaurant_id INTEGER,
+            name TEXT,
+            price TEXT
+        )
+    `);
+
+    db.run(`
+        CREATE TABLE IF NOT EXISTS reservations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            restaurant_id INTEGER,
+            name TEXT,
+            phone TEXT,
+            date TEXT,
+            time TEXT,
+            people TEXT,
+            status TEXT DEFAULT 'pending'
+        )
+    `);
+
+    // Restaurant par défaut de test
+    db.get("SELECT * FROM restaurants WHERE slug = 'café-paris'", (err, row) => {
+        if (!row) {
+            db.run("INSERT INTO restaurants (slug, name, category) VALUES (?, ?, ?)", ['café-paris', 'Le Café de Paris', 'Restaurant / Bar'], function(err) {
+                if (!err) {
+                    const restoId = this.lastID;
+                    db.run("INSERT INTO items (restaurant_id, name, price) VALUES (?, ?, ?)", [restoId, 'Café Expresso', '2.00 €']);
+                    db.run("INSERT INTO items (restaurant_id, name, price) VALUES (?, ?, ?)", [restoId, 'Croissant pur beurre', '1.50 €']);
+                }
+            });
+        }
+    });
+});
 
 // --- ROUTES ---
 
@@ -70,91 +97,102 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Admin Dashboard (Génère le QR Code avec la bonne URL publique ou locale)
-app.get('/admin/:slug', async (req, res) => {
+// Admin Dashboard
+app.get('/admin/:slug', (req, res) => {
     const slug = req.params.slug;
-    const resto = db.prepare("SELECT * FROM restaurants WHERE slug = ?").get(slug);
     
-    if (!resto) return res.status(404).send("Restaurant introuvable.");
+    db.get("SELECT * FROM restaurants WHERE slug = ?", [slug], (err, resto) => {
+        if (err || !resto) return res.status(404).send("Restaurant introuvable.");
 
-    const items = db.prepare("SELECT * FROM items WHERE restaurant_id = ?").all(resto.id);
-    const reservations = db.prepare("SELECT * FROM reservations WHERE restaurant_id = ? AND status = 'pending' ORDER BY id DESC").all(resto.id);
-
-    try {
-        // Détecte automatiquement si on est en ligne ou en local pour le QR Code
-        const host = req.get('host');
-        const protocol = req.protocol;
-        const menuUrl = `${protocol}://${host}/menu/${slug}`;
-        
-        const qrImage = await QRCode.toDataURL(menuUrl);
-        res.render('admin', { resto, items, reservations, qrImage });
-    } catch (err) {
-        res.status(500).send("Erreur génération QR Code.");
-    }
+        db.all("SELECT * FROM items WHERE restaurant_id = ?", [resto.id], (err, items) => {
+            db.all("SELECT * FROM reservations WHERE restaurant_id = ? AND status = 'pending' ORDER BY id DESC", [resto.id], async (err, reservations) => {
+                try {
+                    const host = req.get('host');
+                    const protocol = req.protocol;
+                    const menuUrl = `${protocol}://${host}/menu/${slug}`;
+                    
+                    const qrImage = await QRCode.toDataURL(menuUrl);
+                    res.render('admin', { resto, items: items || [], reservations: reservations || [], qrImage });
+                } catch (qrErr) {
+                    res.status(500).send("Erreur génération QR Code.");
+                }
+            });
+        });
+    });
 });
 
 // Ajouter un plat
 app.post('/admin/:slug/add-item', (req, res) => {
     const slug = req.params.slug;
     const { name, price } = req.body;
-    const resto = db.prepare("SELECT id FROM restaurants WHERE slug = ?").get(slug);
     
-    if (resto) {
-        db.prepare("INSERT INTO items (restaurant_id, name, price) VALUES (?, ?, ?)").run(resto.id, name, price);
-    }
-    res.redirect(`/admin/${slug}`);
+    db.get("SELECT id FROM restaurants WHERE slug = ?", [slug], (err, resto) => {
+        if (resto) {
+            db.run("INSERT INTO items (restaurant_id, name, price) VALUES (?, ?, ?)", [resto.id, name, price], () => {
+                res.redirect(`/admin/${slug}`);
+            });
+        } else {
+            res.redirect('/');
+        }
+    });
 });
 
 // Supprimer un plat
 app.post('/admin/:slug/delete-item/:id', (req, res) => {
     const { slug, id } = req.params;
-    db.prepare("DELETE FROM items WHERE id = ?").run(id);
-    res.redirect(`/admin/${slug}`);
+    db.run("DELETE FROM items WHERE id = ?", [id], () => {
+        res.redirect(`/admin/${slug}`);
+    });
 });
 
-// Marquer une réservation comme traitée (terminée)
+// Marquer une réservation comme traitée
 app.post('/admin/:slug/complete-reservation/:id', (req, res) => {
     const { slug, id } = req.params;
-    db.prepare("UPDATE reservations SET status = 'completed' WHERE id = ?").run(id);
-    res.redirect(`/admin/${slug}`);
+    db.run("UPDATE reservations SET status = 'completed' WHERE id = ?", [id], () => {
+        res.redirect(`/admin/${slug}`);
+    });
 });
 
 // Menu public client
 app.get('/menu/:slug', (req, res) => {
     const slug = req.params.slug;
-    const resto = db.prepare("SELECT * FROM restaurants WHERE slug = ?").get(slug);
     
-    if (!resto) return res.status(404).send("Menu introuvable.");
+    db.get("SELECT * FROM restaurants WHERE slug = ?", [slug], (err, resto) => {
+        if (err || !resto) return res.status(404).send("Menu introuvable.");
 
-    const items = db.prepare("SELECT * FROM items WHERE restaurant_id = ?").all(resto.id);
-    const success = req.query.success === 'true';
-
-    res.render('menu', { resto, items, success });
+        db.all("SELECT * FROM items WHERE restaurant_id = ?", [resto.id], (err, items) => {
+            const success = req.query.success === 'true';
+            res.render('menu', { resto, items: items || [], success });
+        });
+    });
 });
 
 app.get('/reserve/:slug', (req, res) => {
     res.redirect(`/menu/${req.params.slug}`);
 });
 
-// Traitement réservation (avec temps réel WebSocket)
+// Traitement réservation (WebSocket temps réel)
 app.post('/reserve/:slug', (req, res) => {
     const slug = req.params.slug;
     const { name, phone, date, time, people } = req.body;
 
-    const resto = db.prepare("SELECT * FROM restaurants WHERE slug = ?").get(slug);
-    if (resto) {
-        const info = db.prepare("INSERT INTO reservations (restaurant_id, name, phone, date, time, people, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')")
-          .run(resto.id, name, phone, date, time, people);
-
-        const newResId = info.lastInsertRowid;
-
-        // Notifier la tablette du staff
-        io.to(slug).emit('new-reservation', { id: newResId, name, phone, date, time, people });
-
-        res.redirect(`/menu/${slug}?success=true`);
-    } else {
-        res.redirect('/');
-    }
+    db.get("SELECT * FROM restaurants WHERE slug = ?", [slug], (err, resto) => {
+        if (resto) {
+            db.run(
+                "INSERT INTO reservations (restaurant_id, name, phone, date, time, people, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')",
+                [resto.id, name, phone, date, time, people],
+                function(err) {
+                    if (!err) {
+                        const newResId = this.lastID;
+                        io.to(slug).emit('new-reservation', { id: newResId, name, phone, date, time, people });
+                    }
+                    res.redirect(`/menu/${slug}?success=true`);
+                }
+            );
+        } else {
+            res.redirect('/');
+        }
+    });
 });
 
 io.on('connection', (socket) => {

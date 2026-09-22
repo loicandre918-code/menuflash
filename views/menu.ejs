@@ -3,85 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= resto.name %> - Menu & Réservation</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fafafa; color: #333; margin: 0; padding: 20px; }
-        .container { max-width: 500px; margin: 0 auto; background: #fff; padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        h1 { text-align: center; color: #111; margin-bottom: 5px; }
-        .category { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px; }
-        .item-list { list-style: none; padding: 0; }
-        .item { display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid #eee; }
-        .item-name { font-weight: 600; font-size: 1.1rem; }
-        .item-price { color: #2563eb; font-weight: bold; }
-        
-        .reservation-box { margin-top: 40px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 20px; border-radius: 12px; }
-        .reservation-box h3 { margin-top: 0; color: #166534; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px; color: #374151; }
-        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; }
-        button.btn-submit { width: 100%; background: #16a34a; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; }
-        button.btn-submit:hover { background: #15803d; }
-        .alert-success { background: #dcfce7; color: #166534; padding: 10px; border-radius: 6px; text-align: center; margin-bottom: 20px; font-weight: bold; }
-        footer { text-align: center; margin-top: 30px; font-size: 0.8rem; color: #aaa; }
-    </style>
+    <title>Menu - <%= resto.name %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div class="container">
-        <h1><%= resto.name %></h1>
-        <div class="category"><%= resto.category %></div>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased min-h-screen pb-12">
 
-        <% if (locals.success) { %>
-            <div class="alert-success">✅ Réservation envoyée avec succès !</div>
+    <!-- En-tête du Restaurant -->
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-md mx-auto px-4 py-4 text-center">
+            <span class="text-xs uppercase tracking-widest text-indigo-600 font-semibold"><%= resto.category %></span>
+            <h1 class="text-2xl font-bold text-gray-900 mt-1"><%= resto.name %></h1>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 mt-6 space-y-6">
+
+        <!-- Message de succès après réservation -->
+        <% if (success) { %>
+            <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg shadow-sm">
+                <div class="flex">
+                    <div class="ml-3">
+                        <p class="text-sm font-medium text-green-800">Réservation confirmée !</p>
+                        <p class="text-xs text-green-700 mt-05">Le restaurant a bien reçu votre demande.</p>
+                    </div>
+                </div>
+            </div>
         <% } %>
-        
-        <ul class="item-list">
-            <% if (items && items.length > 0) { %>
-                <% items.forEach(item => { %>
-                    <li class="item">
-                        <span class="item-name"><%= item.name %></span>
-                        <span class="item-price"><%= item.price %></span>
-                    </li>
-                <% }) %>
-            <% } else { %>
-                <p style="text-align: center; color: #888;">Aucun plat pour le moment.</p>
-            <% } %>
-        </ul>
 
-        <!-- Module de Réservation -->
-        <div class="reservation-box">
-            <h3>📅 Réserver une table</h3>
-            <form action="/reserve/<%= resto.slug %>" method="POST">
-                <div class="form-group">
-                    <label>Votre Nom :</label>
-                    <input type="text" name="name" required placeholder="Jean Dupont">
+        <!-- Section Menu -->
+        <section>
+            <h2 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                📜 Notre Carte
+            </h2>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+                <% if (items.length === 0) { %>
+                    <p class="p-6 text-center text-gray-400 text-sm">Le menu est en cours de mise à jour.</p>
+                <% } else { %>
+                    <% items.forEach(item => { %>
+                        <div class="p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
+                            <span class="font-medium text-gray-700"><%= item.name %></span>
+                            <span class="text-indigo-600 font-semibold bg-indigo-50 px-3 py-1 rounded-full text-sm"><%= item.price %></span>
+                        </div>
+                    <% }) %>
+                <% } %>
+            </div>
+        </section>
+
+        <!-- Section Réservation -->
+        <section class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">📅 Réserver une table</h2>
+            <form action="/reserve/<%= resto.slug %>" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Votre Nom</label>
+                    <input type="text" name="name" required placeholder="Jean Dupont" 
+                        class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
                 </div>
-                <div class="form-group">
-                    <label>Téléphone :</label>
-                    <input type="tel" name="phone" required placeholder="06 12 34 56 78">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Téléphone</label>
+                    <input type="tel" name="phone" required placeholder="06 12 34 56 78" 
+                        class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
                 </div>
-                <div class="form-group">
-                    <label>Date :</label>
-                    <input type="date" name="date" required>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Date</label>
+                        <input type="date" name="date" required 
+                            class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Heure</label>
+                        <input type="time" name="time" required 
+                            class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Heure :</label>
-                    <input type="time" name="time" required>
-                </div>
-                <div class="form-group">
-                    <label>Nombre de personnes :</label>
-                    <select name="people">
-                        <option value="1">1 personne</option>
-                        <option value="2" selected>2 personnes</option>
-                        <option value="3">3 personnes</option>
-                        <option value="4">4 personnes</option>
-                        <option value="5+">5 personnes ou plus</option>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Nombre de personnes</label>
+                    <select name="people" class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white">
+                        <option value="1 personne">1 personne</option>
+                        <option value="2 personnes" selected>2 personnes</option>
+                        <option value="3-4 personnes">3 à 4 personnes</option>
+                        <option value="5+ personnes">5 personnes ou plus</option>
                     </select>
                 </div>
-                <button type="submit" class="btn-submit">Confirmer la réservation</button>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl transition-colors shadow-sm text-sm">
+                    Confirmer la réservation
+                </button>
             </form>
-        </div>
+        </section>
 
-        <footer>Propulsé par <strong>MenuFlash</strong></footer>
-    </div>
+    </main>
+
+    <footer class="text-center text-gray-400 text-xs mt-8">
+        Propulsé par MenuFlash 🚀
+    </footer>
+
 </body>
 </html>
