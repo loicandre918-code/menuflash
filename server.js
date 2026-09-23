@@ -16,16 +16,9 @@ app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// --- CONFIGURATION BDD (Persistante sur Fly.io via /data) ---
-if (process.env.NODE_ENV === 'production' && !fs.existsSync('/data')) {
-    try {
-        fs.mkdirSync('/data', { recursive: true });
-    } catch (err) {
-        console.error("Impossible de créer le dossier /data :", err);
-    }
-}
-
-const dbPath = process.env.NODE_ENV === 'production' ? '/data/menuflash.db' : 'menuflash.db';
+// --- CONFIGURATION BDD ---
+// Sur Render (production sans disque persistant dédié), on stocke simplement la BDB à la racine
+const dbPath = 'menuflash.db';
 
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
