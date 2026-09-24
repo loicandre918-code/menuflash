@@ -1,142 +1,201 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard - <%= resto.name %></title>
-    <style>
-        body { font-family: system-ui, sans-serif; background: #f1f5f9; color: #1e293b; margin: 0; padding: 20px; }
-        .header { background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        @media(max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-        .card { background: #ffffff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        h2 { margin-top: 0; color: #0f172a; font-size: 1.2rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
-        
-        .res-card { background: #f8fafc; border-left: 4px solid #2563eb; padding: 12px; margin-bottom: 10px; border-radius: 0 8px 8px 0; display: flex; justify-content: space-between; align-items: center; }
-        .form-group { margin-bottom: 12px; }
-        .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; }
-        .form-group input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
-        
-        button { background: #2563eb; color: #fff; border: none; padding: 10px 15px; font-weight: bold; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
-        button:hover { background: #1d4ed8; }
-        button.btn-danger { background: #ef4444; padding: 6px 10px; font-size: 0.8rem; }
-        button.btn-danger:hover { background: #dc2626; }
-        button.btn-success { background: #10b981; padding: 6px 10px; font-size: 0.8rem; }
-        button.btn-success:hover { background: #059669; }
-
-        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
-        .badge { background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
-        .qr-box { text-align: center; }
-        .qr-box img { width: 140px; height: 140px; border: 4px solid #f1f5f9; border-radius: 8px; }
-    </style>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Socket.io pour le temps réel -->
+    <script src="/socket.io/socket.io.js"></script>
 </head>
-<body>
+<body class="bg-slate-950 text-slate-100 min-h-full font-sans antialiased selection:bg-indigo-500 selection:text-white pb-20">
 
-    <div class="header">
-        <div>
-            <h1>🍽️ <%= resto.name %></h1>
-            <span class="badge">Tablette Staff Active</span>
+    <!-- Navbar / En-tête Staff -->
+    <header class="bg-slate-900/80 backdrop-blur-md border-b border-white/10 sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-lg">
+                📱
+            </div>
+            <div>
+                <h1 class="font-bold text-base text-white"><%= resto.name %></h1>
+                <p class="text-xs text-slate-400">Tablette Staff & Commandes en direct</p>
+            </div>
         </div>
-        <div>
-            <a href="/menu/<%= resto.slug %>" target="_blank" style="text-decoration:none; background:#0f172a; color:#fff; padding:10px 15px; border-radius:6px; font-weight:bold;">Voir le Menu Public ↗</a>
+        <div class="flex items-center space-x-3">
+            <a href="/menu/<%= resto.slug %>" target="_blank" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-xs font-medium text-slate-300 transition-all flex items-center space-x-1.5">
+                <span>👁️</span>
+                <span class="hidden sm:inline">Voir le menu public</span>
+            </a>
+            <span class="inline-flex items-center px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-2"></span>
+                En direct
+            </span>
         </div>
-    </div>
+    </header>
 
-    <div class="grid">
-        <!-- Colonne Gauche : Réservations & QR Code -->
-        <div>
-            <div class="card">
-                <h2>📅 Réservations en Temps Réel</h2>
-                <div id="reservations-list">
-                    <% if (reservations.length === 0) { %>
-                        <p id="no-res" style="color: #64748b;">Aucune réservation en attente.</p>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <!-- COLONNE 1 & 2 : Gestion de la Carte & QR Code -->
+        <div class="lg:col-span-2 space-y-8">
+
+            <!-- SECTION : QR Code Client -->
+            <section class="bg-slate-900/80 border border-white/10 rounded-3xl p-6 shadow-2xl relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div class="absolute -right-10 -top-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="space-y-2 text-center sm:text-left">
+                    <span class="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-xs font-semibold uppercase tracking-wider">Accès client</span>
+                    <h2 class="text-xl font-bold text-white">QR Code de la Table</h2>
+                    <p class="text-xs text-slate-400 max-w-sm">Scannez ce code pour tester instantanément le menu numérique et passer une réservation.</p>
+                </div>
+                <div class="bg-white p-3 rounded-2xl shadow-xl shrink-0">
+                    <img src="<%= qrImage %>" alt="QR Code Menu" class="w-32 h-32 object-contain">
+                </div>
+            </section>
+
+            <!-- SECTION : Gestion des Plats / Articles -->
+            <section class="bg-slate-900/80 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6">
+                <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                    <h2 class="text-lg font-bold flex items-center space-x-2 text-white">
+                        <span>📋</span>
+                        <span>Gestion de la Carte (<%= items.length %>)</span>
+                    </h2>
+                </div>
+
+                <!-- Formulaire d'ajout de plat -->
+                <form action="/admin/<%= resto.slug %>/add-item" method="POST" class="grid grid-cols-1 sm:grid-cols-12 gap-3 bg-slate-950/50 p-4 rounded-2xl border border-white/5">
+                    <div class="sm:col-span-6">
+                        <input type="text" name="name" required placeholder="Nom du plat ou boisson (ex: Tiramisu)" 
+                            class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                    </div>
+                    <div class="sm:col-span-4">
+                        <input type="text" name="price" required placeholder="Prix (ex: 8.50 €)" 
+                            class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-xl text-sm transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center">
+                            + Ajouter
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Liste des articles existants -->
+                <div class="grid gap-3 max-h-96 overflow-y-auto pr-1">
+                    <% if (items.length === 0) { %>
+                        <p class="text-center text-slate-500 text-xs py-6">Aucun plat enregistré pour le moment.</p>
                     <% } else { %>
-                        <% reservations.forEach(r => { %>
-                            <div class="res-card" id="res-<%= r.id %>">
-                                <div>
-                                    <strong>👤 <%= r.name %></strong> (<%= r.phone %>)<br>
-                                    🕒 <%= r.date %> à <%= r.time %> — <strong><%= r.people %> pers.</strong>
+                        <% items.forEach(item => { %>
+                            <div class="bg-slate-950/40 hover:bg-slate-950 border border-white/5 rounded-2xl p-4 flex items-center justify-between transition-all">
+                                <div class="space-y-0.5">
+                                    <h3 class="font-semibold text-sm text-slate-200"><%= item.name %></h3>
+                                    <p class="text-xs text-indigo-400 font-medium"><%= item.price %></p>
                                 </div>
-                                <form action="/admin/<%= resto.slug %>/complete-reservation/<%= r.id %>" method="POST">
-                                    <button type="submit" class="btn-success">✓ Traité</button>
+                                <form action="/admin/<%= resto.slug %>/delete-item/<%= item.id %>" method="POST">
+                                    <button type="submit" class="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all text-xs">
+                                        🗑️ Supprimer
+                                    </button>
                                 </form>
                             </div>
                         <% }) %>
                     <% } %>
                 </div>
-            </div>
-
-            <!-- Module QR Code Intégré -->
-            <div class="card qr-box">
-                <h2>📱 QR Code des Tables</h2>
-                <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 10px;">À imprimer et poser sur les tables du restaurant :</p>
-                <img src="<%= qrImage %>" alt="QR Code Menu">
-            </div>
+            </section>
         </div>
 
-        <!-- Colonne Droite : Gestion du Menu -->
-        <div class="card">
-            <h2>🍔 Gestion de la Carte</h2>
-            <form action="/admin/<%= resto.slug %>/add-item" method="POST" style="margin-bottom: 25px;">
-                <div class="form-group">
-                    <label>Nom du plat / produit :</label>
-                    <input type="text" name="name" required placeholder="Ex: Burger Deluxe">
+        <!-- COLONNE 3 : Réservations en Temps Réel -->
+        <div class="space-y-6">
+            <section class="bg-slate-900/80 border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4">
+                <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                    <h2 class="text-lg font-bold flex items-center space-x-2 text-white">
+                        <span>🔔</span>
+                        <span>Réservations en attente</span>
+                    </h2>
+                    <span id="reservation-count" class="px-2.5 py-1 rounded-full bg-indigo-600/20 text-indigo-400 text-xs font-bold border border-indigo-500/30">
+                        <%= reservations.length %>
+                    </span>
                 </div>
-                <div class="form-group">
-                    <label>Prix :</label>
-                    <input type="text" name="price" required placeholder="Ex: 16.00 €">
-                </div>
-                <button type="submit" style="width:100%;">Ajouter au menu instantanément</button>
-            </form>
 
-            <h3 style="font-size:1rem; margin-bottom:10px;">Plats actuellement affichés :</h3>
-            <div>
-                <% if (items.length === 0) { %>
-                    <p style="color: #64748b;">Aucun plat enregistré.</p>
-                <% } else { %>
-                    <% items.forEach(item => { %>
-                        <div class="item-row">
-                            <span><%= item.name %> — <strong><%= item.price %></strong></span>
-                            <form action="/admin/<%= resto.slug %>/delete-item/<%= item.id %>" method="POST" style="margin:0;">
-                                <button type="submit" class="btn-danger">🗑️ Supprimer</button>
-                            </form>
+                <!-- Conteneur dynamique des réservations -->
+                <div id="reservations-container" class="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                    <% if (reservations.length === 0) { %>
+                        <div id="no-reservations" class="bg-slate-950/40 border border-white/5 rounded-2xl p-6 text-center text-slate-500 text-xs">
+                            Aucune réservation en attente pour l'instant. Les nouvelles s'afficheront ici en direct !
                         </div>
-                    <% }) %>
-                <% } %>
-            </div>
+                    <% } else { %>
+                        <% reservations.forEach(res => { %>
+                            <div class="bg-slate-950/60 border border-amber-500/30 rounded-2xl p-4 space-y-3 shadow-lg relative overflow-hidden animate-fadeIn">
+                                <div class="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <h3 class="font-bold text-sm text-white"><%= res.name %></h3>
+                                        <p class="text-xs text-indigo-400 font-medium">📞 <%= res.phone %></p>
+                                    </div>
+                                    <span class="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 text-[10px] font-semibold border border-amber-500/20">
+                                        <%= res.people %>
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between text-xs text-slate-400 bg-slate-900/80 px-3 py-2 rounded-xl border border-white/5">
+                                    <span>📅 <%= res.date %></span>
+                                    <span class="font-bold text-white">⏰ <%= res.time %></span>
+                                </div>
+                                <form action="/admin/<%= resto.slug %>/complete-reservation/<%= res.id %>" method="POST">
+                                    <button type="submit" class="w-full bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-medium py-2 rounded-xl text-xs transition-all flex items-center justify-center space-x-1">
+                                        <span>✅</span>
+                                        <span>Marquer comme traité / installé</span>
+                                    </button>
+                                </form>
+                            </div>
+                        <% }) %>
+                    <% } %>
+                </div>
+            </section>
         </div>
-    </div>
 
-    <!-- Script Temps Réel WebSocket -->
-    <script src="/socket.io/socket.io.js"></script>
+    </main>
+
+    <!-- Script Socket.io pour l'affichage dynamique des nouvelles réservations -->
     <script>
         const socket = io();
-        const restoSlug = "<%= resto.slug %>";
-        
-        socket.emit('join-admin-room', restoSlug);
+        const slug = "<%= resto.slug %>";
+        socket.emit('join-admin-room', slug);
 
         socket.on('new-reservation', (data) => {
-            const list = document.getElementById('reservations-list');
-            const noResMsg = document.getElementById('no-res');
+            const container = document.getElementById('reservations-container');
+            const noResMsg = document.getElementById('no-reservations');
             if (noResMsg) noResMsg.remove();
 
-            const newCard = document.createElement('div');
-            newCard.className = 'res-card';
-            newCard.id = `res-${data.id}`;
-            newCard.innerHTML = `
-                <div>
-                    <strong>🔔 NOUVELLE : 👤 ${data.name}</strong> (${data.phone})<br>
-                    🕒 ${data.date} à ${data.time} — <strong>${data.people} pers.</strong>
+            // Incrémenter le compteur
+            const countBadge = document.getElementById('reservation-count');
+            let currentCount = parseInt(countBadge.innerText) || 0;
+            countBadge.innerText = currentCount + 1;
+
+            // Créer la nouvelle carte de réservation
+            const card = document.createElement('div');
+            card.className = "bg-slate-950/60 border border-indigo-500/40 rounded-2xl p-4 space-y-3 shadow-xl relative overflow-hidden animate-pulse";
+            card.innerHTML = `
+                <div class="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h3 class="font-bold text-sm text-white">${data.name}</h3>
+                        <p class="text-xs text-indigo-400 font-medium">📞 ${data.phone}</p>
+                    </div>
+                    <span class="px-2 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 text-[10px] font-semibold border border-indigo-500/20">
+                        ${data.people}
+                    </span>
                 </div>
-                <form action="/admin/${restoSlug}/complete-reservation/${data.id}" method="POST">
-                    <button type="submit" class="btn-success">✓ Traité</button>
+                <div class="flex items-center justify-between text-xs text-slate-400 bg-slate-900/80 px-3 py-2 rounded-xl border border-white/5">
+                    <span>📅 ${data.date}</span>
+                    <span class="font-bold text-white">⏰ ${data.time}</span>
+                </div>
+                <form action="/admin/${slug}/complete-reservation/${data.id}" method="POST">
+                    <button type="submit" class="w-full bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-medium py-2 rounded-xl text-xs transition-all flex items-center justify-center space-x-1">
+                        <span>✅</span>
+                        <span>Marquer comme traité / installé</span>
+                    </button>
                 </form>
             `;
-            list.prepend(newCard);
-
-            // Alerte sonore ou visuelle simple
-            alert(`🎉 Nouvelle réservation de ${data.name} (${data.people} personnes) !`);
+            container.prepend(card);
         });
     </script>
+
 </body>
 </html>
